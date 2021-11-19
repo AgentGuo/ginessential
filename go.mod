@@ -1,4 +1,4 @@
-module ginessential
+module github.com/AgentGuo/ginessential
 
 go 1.17
 

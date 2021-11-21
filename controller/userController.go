@@ -2,7 +2,9 @@ package controller
 
 import (
 	"github.com/AgentGuo/ginessential/common"
+	"github.com/AgentGuo/ginessential/dto"
 	"github.com/AgentGuo/ginessential/model"
+	"github.com/AgentGuo/ginessential/response"
 	"github.com/AgentGuo/ginessential/utils"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
@@ -21,36 +23,28 @@ func Register(ctx *gin.Context) {
 	}
 
 	if len(telephone) != 11{
-		ctx.JSON(http.StatusUnprocessableEntity, gin.H{
-			"code": 422,
-			"msg": "Your phone number must be 11 digits",
-		})
+		response.Response(ctx, http.StatusUnprocessableEntity, 422, nil,
+			"Your phone number must be 11 digits")
 		return
 	}
 
 	if isTelephoneExist(telephone){
-		ctx.JSON(http.StatusUnprocessableEntity, gin.H{
-			"code": 422,
-			"msg": "Your phone number is already in use",
-		})
+		response.Response(ctx, http.StatusUnprocessableEntity, 422, nil,
+			"Your phone number is already in use")
 		return
 	}
 
 	if len(password) < 6{
-		ctx.JSON(http.StatusUnprocessableEntity, gin.H{
-			"code": 422,
-			"msg": "Your password can't less than 6 digits",
-		})
+		response.Response(ctx, http.StatusUnprocessableEntity, 422, nil,
+			"Your password can't less than 6 digits")
 		return
 	}
 
 	// encrypt password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil{
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"code": 500,
-			"msg": "enc password error",
-		})
+		response.Response(ctx, http.StatusInternalServerError, 500, nil,
+			"enc password error")
 		return
 	}
 	// create user
@@ -61,10 +55,7 @@ func Register(ctx *gin.Context) {
 	})
 
 	// return result
-	ctx.JSON(http.StatusOK, gin.H{
-		"code": 200,
-		"msg": "OK",
-	})
+	response.Success(ctx, nil, "OK")
 }
 
 func Login(ctx *gin.Context)  {
@@ -73,51 +64,35 @@ func Login(ctx *gin.Context)  {
 	password := ctx.PostForm("password")
 	// verify data
 	if len(telephone) != 11{
-		ctx.JSON(http.StatusUnprocessableEntity, gin.H{
-			"code": 422,
-			"msg": "Your phone number must be 11 digits",
-		})
+		response.Response(ctx, http.StatusUnprocessableEntity, 422, nil,
+			"Your phone number must be 11 digits")
 		return
 	}
 	if len(password) < 6{
-		ctx.JSON(http.StatusUnprocessableEntity, gin.H{
-			"code": 422,
-			"msg": "Your password can't less than 6 digits",
-		})
+		response.Response(ctx, http.StatusUnprocessableEntity, 422, nil,
+			"Your password can't less than 6 digits")
 		return
 	}
 	var user model.User
 	common.DB.Where("telephone = ?", telephone).First(&user)
 	if user.ID == 0{
-		ctx.JSON(http.StatusUnprocessableEntity, gin.H{
-			"code": 422,
-			"msg": "Your phone number is not registered",
-		})
+		response.Response(ctx, http.StatusUnprocessableEntity, 422, nil,
+			"Your phone number is not registered")
 		return
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil{
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"code": 400,
-			"msg": "Your password error",
-		})
+		response.Fail(ctx, nil, "Your password error")
 		return
 	}
 	// grant token
 	token, err := common.ReleaseToken(user)
 	if err != nil{
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"code": 500,
-			"msg": "grant token failed",
-		})
+		response.Response(ctx, http.StatusInternalServerError, 500, nil,
+			"grant token failed")
 		log.Printf("token grant failed\n")
 		return
 	}
-
-	ctx.JSON(http.StatusOK, gin.H{
-		"code": 200,
-		"data": gin.H{"token":token},
-		"msg": "Login succeeded",
-	})
+	response.Success(ctx, gin.H{"token":token}, "Login succeeded")
 }
 
 func isTelephoneExist(telephone string) bool{
@@ -131,8 +106,6 @@ func isTelephoneExist(telephone string) bool{
 
 func Info(ctx *gin.Context)  {
 	user, _ := ctx.Get("user")
-	ctx.JSON(http.StatusOK, gin.H{
-		"code": 200,
-		"data":gin.H{"user": user},
-	})
+	response.Success(ctx, gin.H{"user": dto.ToUserDto(user.(model.User))},
+		"Successfully obtained information")
 }
